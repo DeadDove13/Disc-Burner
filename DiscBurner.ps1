@@ -5,7 +5,7 @@ $WarningColour = "Yellow"
 $InfoColour = "Cyan"
 $ExitMessage = "Press Enter to exit"
 
-$CpuProcesses = 20 #The number of cpu Processes shown
+$CpuProcesses = 100 # The number of CPU processes shown
 
 # Function to analyze disk space usage
 function AnalyzeDiskSpace {
@@ -40,7 +40,7 @@ function AnalyzeDiskSpace {
 
 # Function to get RAM usage
 function Get-RAMUsage {
-    $os = Get-WmiObject -Class Win32_OperatingSystem
+    $os = Get-CimInstance -ClassName Win32_OperatingSystem
     $totalRAM = [math]::round($os.TotalVisibleMemorySize / 1MB, 2)
     $freeRAM = [math]::round($os.FreePhysicalMemory / 1MB, 2)
     $usedRAM = [math]::round($totalRAM - $freeRAM, 2)
@@ -64,7 +64,7 @@ function Get-CPUUsage {
     # Get CPU usage by process
     $processes = Get-Process | Sort-Object -Property CPU -Descending
     $totalCpuTime = [math]::round(($processes | Measure-Object -Property CPU -Sum).Sum, 2)
-    
+
     Write-Host "`nTop $CpuProcesses CPU Usage by Process (% of Total CPU):" -ForegroundColor $InfoColour
     foreach ($process in $processes | Select-Object -First $CpuProcesses) {
         $processCpuTime = [math]::round($process.CPU, 2)
@@ -75,7 +75,7 @@ function Get-CPUUsage {
 
 # Function to get GPU information
 function Get-GPUInfo {
-    $gpus = Get-CimInstance Win32_VideoController
+    $gpus = Get-CimInstance -ClassName Win32_VideoController
 
     foreach ($gpu in $gpus) {
         $gpuName = $gpu.Name
@@ -99,44 +99,63 @@ function Get-NetworkActivity {
         $bytesPerSec = [math]::round($interface.CookedValue / 1MB, 2)
         Write-Host ("{0,-30} {1,10} MB/s" -f $interfaceName, "$bytesPerSec") -ForegroundColor $PassColour
     }
+
+    # Prompt to display network connections
+    do {
+        $choice = Read-Host "Press 1 to display active network connections or 0 to skip"
+
+        if ($choice -eq "1") {
+            Get-NetworkConnections
+            break
+        } elseif ($choice -eq "0") {
+            Write-Host "Skipping network connections display." -ForegroundColor White
+            break
+        } else {
+            Write-Host "B R U H!!! Invalid input. Please try again." -ForegroundColor $ErrorColour
+        }
+    } while ($true)
 }
 
 # Function to get network connections and associated processes
 function Get-NetworkConnections {
-    $netstat = netstat -ano
-    $tcpConnections = $netstat | Select-String "TCP"
-    $udpConnections = $netstat | Select-String "UDP"
+    try {
+        $netstat = netstat -ano
+        $tcpConnections = $netstat | Select-String "TCP"
+        $udpConnections = $netstat | Select-String "UDP"
 
-    $connections = @()
-    $connections += $tcpConnections
-    $connections += $udpConnections
+        $connections = @()
+        $connections += $tcpConnections
+        $connections += $udpConnections
 
-    $results = @()
+        $results = @()
 
-    foreach ($connection in $connections) {
-        if ($connection -match "^(.*?)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\d+)$") {
-            $protocol = $matches[1]
-            $localAddress = $matches[2]
-            $foreignAddress = $matches[3]
-            $state = $matches[4]
-            $processID = $matches[5]  # Renamed variable to avoid conflict
+        foreach ($connection in $connections) {
+            if ($connection -match "^(.*?)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\d+)$") {
+                $protocol = $matches[1]
+                $localAddress = $matches[2]
+                $foreignAddress = $matches[3]
+                $state = $matches[4]
+                $processID = $matches[5]
 
-            $process = Get-Process -Id $processID -ErrorAction SilentlyContinue
-            $processName = if ($process) { $process.Name } else { "Unknown" }
+                $process = Get-Process -Id $processID -ErrorAction SilentlyContinue
+                $processName = if ($process) { $process.Name } else { "Unknown" }
 
-            $results += [pscustomobject]@{
-                Protocol       = $protocol
-                LocalAddress   = $localAddress
-                ForeignAddress = $foreignAddress
-                State          = $state
-                ProcessName    = $processName
-                PID            = $processID  # Updated field name
+                $results += [pscustomobject]@{
+                    Protocol       = $protocol
+                    LocalAddress   = $localAddress
+                    ForeignAddress = $foreignAddress
+                    State          = $state
+                    ProcessName    = $processName
+                    PID            = $processID
+                }
             }
         }
-    }
 
-    Write-Host "`nNetwork Connections and Processes:" -ForegroundColor $InfoColour
-    $results | Format-Table -AutoSize
+        Write-Host "`nNetwork Connections and Processes:" -ForegroundColor $InfoColour
+        $results | Format-Table -AutoSize
+    } catch {
+        Write-Host "Failed to retrieve network connections - $_" -ForegroundColor $ErrorColour
+    }
 }
 
 # ASCII art and GitHub information
@@ -173,7 +192,6 @@ do {
         Get-CPUUsage
         Get-GPUInfo
         Get-NetworkActivity
-        Get-NetworkConnections
         break
     } elseif ($choice -eq "0") {
         Write-Host "Exiting the script." -ForegroundColor White
