@@ -5,7 +5,7 @@ $WarningColour = "Yellow"
 $InfoColour = "Cyan"
 $ExitMessage = "Press Enter to exit"
 
-$CpuProcesses = 10 #The number of cpu Processes shown
+$CpuProcesses = 20 #The number of cpu Processes shown
 
 # Function to analyze disk space usage
 function AnalyzeDiskSpace {
@@ -65,7 +65,7 @@ function Get-CPUUsage {
     $processes = Get-Process | Sort-Object -Property CPU -Descending
     $totalCpuTime = [math]::round(($processes | Measure-Object -Property CPU -Sum).Sum, 2)
     
-    Write-Host "`nTop 10 CPU Usage by Process (% of Total CPU):" -ForegroundColor $InfoColour
+    Write-Host "`nTop $CpuProcesses CPU Usage by Process (% of Total CPU):" -ForegroundColor $InfoColour
     foreach ($process in $processes | Select-Object -First $CpuProcesses) {
         $processCpuTime = [math]::round($process.CPU, 2)
         $cpuPercentage = if ($totalCpuTime -ne 0) { [math]::round(($processCpuTime / $totalCpuTime) * 100, 2) } else { 0 }
