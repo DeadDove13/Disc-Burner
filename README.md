@@ -33,3 +33,6 @@ For more details and updates, visit the [GitHub profile](https://github.com/Dead
 ## License
 
 This script is provided as-is. No warranties or guarantees are provided.
+
+
+Thanks gpt for the read-me
